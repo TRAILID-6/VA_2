@@ -1,0 +1,265 @@
+// frontend/src/App.js
+import React, { useState, useRef, useEffect } from 'react';
+import axios from 'axios';
+import './App.css';
+
+// The URL of your FastAPI backend
+const API_URL = 'http://127.0.0.1:8000';
+
+function App() {
+  const [messages, setMessages] = useState([
+    { role: 'assistant', content: 'Hello! How can I help you today?' }
+  ]);
+  const [inputValue, setInputValue] = useState('');
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+
+  // Auto-scroll to the latest message
+  const messagesEndRef = useRef(null);
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+  useEffect(scrollToBottom, [messages]);
+
+
+  // --- API Communication ---
+  // frontend/src/App.js
+
+  const sendToServer = async (formData) => {
+    try {
+      const response = await axios.post(`${API_URL}/api/process`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      const { responseText, audioUrl } = response.data;
+
+      // Add assistant's text response to chat
+      setMessages(prev => [...prev, { role: 'assistant', content: responseText }]);
+
+      // --- CHANGE: Conditional Audio Playback ---
+      // Only play audio if the audioUrl is not null or empty
+      if (audioUrl) {
+        const audio = new Audio(`${API_URL}${audioUrl}`);
+        audio.play();
+      }
+      // --- END CHANGE ---
+
+    } catch (error) {
+      console.error("Error sending data to server:", error);
+      setMessages(prev => [...prev, { role: 'assistant', content: "Sorry, I encountered an error." }]);
+    }
+  };
+
+
+  // --- Input Handlers ---
+  const handleSendText = () => {
+    if (!inputValue.trim()) return;
+
+    setMessages(prev => [...prev, { role: 'user', content: inputValue }]);
+
+    const formData = new FormData();
+    formData.append('text', inputValue);
+    sendToServer(formData);
+
+    setInputValue('');
+  };
+
+  const handleToggleRecording = () => {
+    if (isRecording) {
+      // Stop recording
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    } else {
+      // Start recording
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+          const mediaRecorder = new MediaRecorder(stream);
+          mediaRecorderRef.current = mediaRecorder;
+          audioChunksRef.current = [];
+
+          mediaRecorder.ondataavailable = event => {
+            audioChunksRef.current.push(event.data);
+          };
+
+          mediaRecorder.onstop = () => {
+            const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
+            const audioFile = new File([audioBlob], "recording.wav", { type: "audio/wav" });
+
+            const formData = new FormData();
+            formData.append('audio_file', audioFile);
+
+            setMessages(prev => [...prev, { role: 'user', content: '[Voice Input]' }]);
+            sendToServer(formData);
+
+            // Stop all tracks in the stream to turn off the mic indicator
+            stream.getTracks().forEach(track => track.stop());
+          };
+
+          mediaRecorder.start();
+          setIsRecording(true);
+        })
+        .catch(err => console.error("Error accessing microphone:", err));
+    }
+  };
+
+  return (
+    <div className="chat-container">
+      <div className="chat-header">Verbi Voice Assistant</div>
+      <div className="messages-area">
+        {messages.map((msg, index) => (
+          <div key={index} className={`message ${msg.role}`}>
+            {msg.content}
+          </div>
+        ))}
+        <div ref={messagesEndRef} />
+      </div>
+      <div className="input-area">
+        <input
+          type="text"
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          onKeyPress={(e) => e.key === 'Enter' && handleSendText()}
+          placeholder="Type your message..."
+        />
+        <button className="send" onClick={handleSendText}>Send</button>
+        <button
+          className={isRecording ? 'stop' : 'record'}
+          onClick={handleToggleRecording}
+        >
+          {isRecording ? 'Stop' : 'Record'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default App;
+
+
+
+
+old mani.pydub
+
+# backend/main.py
+import os
+import uuid
+import logging
+from fastapi import FastAPI, File, UploadFile, Form, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+
+# Import logic functions
+from logic.config import Config
+from logic.api_keys import (
+    get_transcription_api_key,
+    get_response_api_key,
+    get_tts_api_key,
+)
+from logic.stt import transcribe_audio
+from logic.llm import generate_response
+from logic.tts import text_to_speech
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+
+app = FastAPI()
+
+# --- CORS Middleware ---
+# Allows the React frontend (running on a different port) to communicate with this backend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, restrict this to your frontend's URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# --- Static File Serving ---
+# Create a directory to store generated audio and serve it statically
+STATIC_DIR = "generated_audio"
+os.makedirs(STATIC_DIR, exist_ok=True)
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+
+# --- System Prompt ---
+# Defines the assistant's personality
+CHAT_HISTORY = [
+    {
+        "role": "system",
+        "content": "You are Verbi, a friendly and helpful voice assistant.",
+    }
+]
+
+
+# backend/main.py
+
+
+@app.post("/api/process")
+async def process_input(text: str = Form(None), audio_file: UploadFile = File(None)):
+    """
+    This single endpoint handles both text and voice input.
+    """
+    user_input = ""
+    temp_audio_path = None
+    was_voice_input = False  # <-- CHANGE: Add a flag to track input type
+
+    try:
+        if audio_file:
+            # Handle voice input
+            logging.info("Processing audio file...")
+            was_voice_input = True  # <-- CHANGE: Set flag for voice input
+            temp_audio_path = os.path.join(STATIC_DIR, f"temp_{uuid.uuid4()}.wav")
+            with open(temp_audio_path, "wb") as f:
+                f.write(await audio_file.read())
+
+            api_key = get_transcription_api_key()
+            user_input = transcribe_audio(
+                Config.TRANSCRIPTION_MODEL, api_key, temp_audio_path
+            )
+            logging.info(f"Transcription: {user_input}")
+
+        elif text:
+            # Handle text input
+            logging.info("Processing text input...")
+            user_input = text
+
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="No input provided. Please provide text or an audio file.",
+            )
+
+        CHAT_HISTORY.append({"role": "user", "content": user_input})
+
+        api_key = get_response_api_key()
+        response_text = generate_response(Config.RESPONSE_MODEL, api_key, CHAT_HISTORY)
+        logging.info(f"LLM Response: {response_text}")
+
+        CHAT_HISTORY.append({"role": "assistant", "content": response_text})
+
+        # --- CHANGE: Conditional TTS Generation ---
+        audio_url = None  # Initialize audio_url as None
+        if was_voice_input:
+            api_key = get_tts_api_key()
+            output_filename = f"response_{uuid.uuid4()}.mp3"
+            output_path = os.path.join(STATIC_DIR, output_filename)
+            text_to_speech(Config.TTS_MODEL, api_key, response_text, output_path)
+            audio_url = (
+                f"/static/{output_filename}"  # Set URL only if audio was generated
+            )
+        # --- END CHANGE ---
+
+        return {"responseText": response_text, "audioUrl": audio_url}
+
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if temp_audio_path and os.path.exists(temp_audio_path):
+            os.remove(temp_audio_path)
+
+
+@app.get("/")
+def read_root():
+    return {"message": "Voice Assistant Backend is running."}

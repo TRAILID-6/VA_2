@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+python-dotenv
+openai
+groq
+elevenlabs
+SpeechRecognition
+pydub
+python-multipart
+requests
+colorama
+pymongo
+google-generativeai
+ollama
+soundfile
