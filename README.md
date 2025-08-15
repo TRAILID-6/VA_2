@@ -1,4 +1,3 @@
-```markdown
 # Multi-Model AI Voice Assistant
 
 This is a full-stack, modular voice assistant that combines a React frontend with a Python (FastAPI) backend. It allows users to interact with various state-of-the-art AI models for transcription, response generation (LLM), and text-to-speech (TTS) through either voice or text input.
@@ -18,25 +17,23 @@ The key feature of this project is its flexibility, allowing you to switch betwe
 ## 📂 Project Structure
 
 ```
-
 web-voice-assistant/
 ├── backend/
 │   ├── logic/
-│   │   ├── config.py         \# Main configuration for models
-│   │   └── ...               \# Other logic files (llm, stt, tts)
-│   ├── .env                  \# API keys and secrets
-│   ├── main.py               \# Main FastAPI server
-│   ├── local\_tts\_server.py   \# Dedicated server for MeloTTS
-│   ├── patch\_melo.py         \# One-time script to fix a dependency
-│   └── requirements.txt      \# Python dependencies
+│   │   ├── config.py         # Main configuration for models
+│   │   └── ...               # Other logic files (llm, stt, tts)
+│   ├── .env                  # API keys and secrets
+│   ├── main.py               # Main FastAPI server
+│   ├── local_tts_server.py   # Dedicated server for MeloTTS
+│   ├── patch_melo.py         # One-time script to fix a dependency
+│   └── requirements.txt      # Python dependencies
 │
 └── frontend/
-├── src/
-│   ├── App.js            \# Main React component
-│   └── ...
-└── package.json          \# Frontend dependencies
-
-````
+    ├── src/
+    │   ├── App.js            # Main React component
+    │   └── ...
+    └── package.json          # Frontend dependencies
+```
 
 ## 🚀 Getting Started
 
@@ -54,9 +51,9 @@ First, clone the project repository and set up the necessary virtual environment
 # Clone the repository (if you haven't already)
 git clone <your-repo-url>
 cd web-voice-assistant
-````
+```
 
-### 2\. Backend Setup (Python)
+### 2. Backend Setup (Python)
 
 Navigate to the backend folder and set up a Python virtual environment.
 
@@ -77,7 +74,7 @@ venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 3\. Frontend Setup (React)
+### 3. Frontend Setup (React)
 
 Open a **new terminal** for the frontend.
 
@@ -91,14 +88,12 @@ npm install
 
 ## ⚙️ Configuration
 
-### 1\. API Keys
+### 1. API Keys
 
 Before running the application, you need to provide API keys for the cloud services you want to use.
 
 1.  In the `backend` folder, rename the `.env.example` file to `.env`.
 2.  Open the `.env` file and add your keys.
-
-<!-- end list -->
 
 ```env
 # Get from [https://platform.openai.com/api-keys](https://platform.openai.com/api-keys)
@@ -114,14 +109,14 @@ ELEVENLABS_API_KEY="YOUR_ELEVENLABS_API_KEY"
 GOOGLE_API_KEY="YOUR_GOOGLE_AI_STUDIO_KEY"
 ```
 
-### 2\. Switching Models
+### 2. Switching Models
 
 This project is designed for easy model switching.
 
-  * **Response Model (LLM):** This is controlled directly from the **dropdown menu in the user interface**.
-  * **Transcription & TTS Models:** These are set in the backend configuration file.
-      * Open `backend/logic/config.py`.
-      * Change the values for `TRANSCRIPTION_MODEL` and `TTS_MODEL` to your desired provider (e.g., `'openai'`, `'groq'`, `'elevenlabs'`).
+* **Response Model (LLM):** This is controlled directly from the **dropdown menu in the user interface**.
+* **Transcription & TTS Models:** These are set in the backend configuration file.
+    * Open `backend/logic/config.py`.
+    * Change the values for `TRANSCRIPTION_MODEL` and `TTS_MODEL` to your desired provider (e.g., `'openai'`, `'groq'`, `'elevenlabs'`).
 
 ## ▶️ Running the Application
 
@@ -161,9 +156,9 @@ For enhanced privacy and offline capability, you can run the LLM and TTS models 
     ollama list
     ```
 4.  **Configure the Project:**
-      * Ensure the Ollama application is running.
-      * In `backend/logic/config.py`, make sure the `OLLAMA_LLM` variable matches the name of the model you pulled (e.g., `"llama3.2"`).
-      * You can now select "Ollama (Local)" from the dropdown in the UI.
+    * Ensure the Ollama application is running.
+    * In `backend/logic/config.py`, make sure the `OLLAMA_LLM` variable matches the name of the model you pulled (e.g., `"llama3.2"`).
+    * You can now select "Ollama (Local)" from the dropdown in the UI.
 
 ### MeloTTS (for TTS)
 
@@ -178,25 +173,20 @@ MeloTTS is a high-quality local text-to-speech engine.
     pip install git+[https://github.com/myshell-ai/MeloTTS.git](https://github.com/myshell-ai/MeloTTS.git)
     ```
 3.  **Patch the Installation:** The MeloTTS library has a dependency bug related to Japanese language processing. A patch script is included to fix this.
-      * Run the script **once**:
+    * Run the script **once**:
         ```bash
         python patch_melo.py
         ```
-      * This will modify a file inside the installed library to prevent it from crashing. Once the script confirms the patch was successful, **you can delete `patch_melo.py`**.
+    * This will modify a file inside the installed library to prevent it from crashing. Once the script confirms the patch was successful, **you can delete `patch_melo.py`**.
 4.  **Download NLTK Data:** MeloTTS requires an additional data package to work correctly. Run this command once:
     ```bash
     python -m nltk.downloader averaged_perceptron_tagger_eng
     ```
 5.  **Run the TTS Server (Terminal 3):**
-      * Open a **third terminal**.
-      * Navigate to the `backend/` directory and activate your virtual environment.
-      * Start the dedicated TTS server:
+    * Open a **third terminal**.
+    * Navigate to the `backend/` directory and activate your virtual environment.
+    * Start the dedicated TTS server:
         ```bash
         uvicorn local_tts_server:app --port 8001
         ```
-      * The first time you run this, it will download the MeloTTS model files.
-
-<!-- end list -->
-
-```
-```
+    * The first time you run this, it will download the MeloTTS model files.
